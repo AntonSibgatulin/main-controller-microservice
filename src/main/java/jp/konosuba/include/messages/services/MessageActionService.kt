@@ -14,6 +14,11 @@ open class MessageActionService(private val messageActionRepository: MessageActi
     @Transactional
     open fun saveAll(arr:ArrayList<MessageAction>){
         messageActionRepository.saveAll(arr);
+        /*for(l in arr){
+            messageActionRepository.save(l)
+        }
+
+         */
     }
 
 }

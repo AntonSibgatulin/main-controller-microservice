@@ -35,7 +35,7 @@ class MainController(
 ) : Thread() {
     private val log = LoggerFactory.getLogger(App::class.java)
 
-    private val maxLengthOfArray = 100
+    private val maxLengthOfArray = 1
 
     private lateinit var consumer: KafkaConsumer<String, String>
     private lateinit var producer: KafkaProducer<String?, String>
@@ -55,9 +55,9 @@ class MainController(
 
     private var thread_5_min = Thread(Runnable {
         while (true) {
-            Thread.sleep(1000 * 60 * 5)
+            Thread.sleep(1000 * 30 /* * 60 * 5*/)
             var crons = cronService.getCronsByTypeCron(CronType.MINUTES_5)
-            for (cron in crons) {
+             for (cron in crons) {
                 pushTaskInRedis(ClassUtils.fromObjectToJson(cron))
             }
         }
@@ -131,32 +131,33 @@ class MainController(
         while (true) {
             if (!listPrintInKafka.isEmpty()) {
                 var cron = listPrintInKafka.poll()
-                if (cron != null){
+                if (cron != null) {
                     var runnable = Runnable {
-                        jedis.set("hash"+System.currentTimeMillis(),cron.message)
+                        var messageId = "hash" + System.currentTimeMillis();
+                        jedis.set(messageId, cron.message)
                         var json = JSONObject()
-                        json.put("typeOperation","notification-api")
-                        json.put("type","cronError")
-                        json.put("userId",cron.userId)
-                        json.put("cronId",cron.id)
+                        json.put("typeOperation", "notification-api")
+                        json.put("type", "cronError")
+                        json.put("userId", cron.userId)
+                        json.put("cronId", cron.id)
                         sendMessageInKafkaPublic(json.toString())
 
 
-                        for (x in 0..(cron.contacts.size)){
+                        for (x in 0..(cron.contacts.size)-1) {
                             val jsonObject = JSONObject()
                             jsonObject.put("typeOperation", "send")
                             jsonObject.put(
                                 "contact",
-                                JSONArray(ClassUtils.fromObjectToJson(cron.contacts[x]))
+                                JSONObject(ClassUtils.fromObjectToJson(cron.contacts[x]))
                             )
-                            jsonObject.put("messageId", id)
+                            jsonObject.put("messageId", messageId)
                             jsonObject.put("type", "email")
                             jsonObject.put("userId", cron.userId)
                             sendMessageInKafkaPublic(jsonObject.toString())
                         }
                         val jsonObject = JSONObject()
                         jsonObject.put("typeOperation", "end_send")
-                        jsonObject.put("messageId", id)
+                        jsonObject.put("messageId", messageId)
                         jsonObject.put("userId", cron.userId)
                         sendMessageInKafkaPublic(jsonObject.toString())
                     }
@@ -198,12 +199,15 @@ class MainController(
         properties.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer::class.java.name)
         properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer::class.java.name)
         properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId)
-        properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-
+        //properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+        //properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        //properties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "5")
         properties.setProperty(
             ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
             "org.apache.kafka.clients.consumer.RoundRobinAssignor"
         )
+
+
 
         consumer = KafkaConsumer(properties)
         consumer.subscribe(listOf(topic))
@@ -225,17 +229,20 @@ class MainController(
 
 
     private fun execute(message: String) {
-        val jsonObjects: JSONObject = JSONObject(message)
+        val jsonObjects = JSONObject(message)
         var type = jsonObjects.getString("typeOperation")
         if (type.equals("email_ok")) {
 
-            var messageAction: MessageAction = ClassUtils.fromJsonToMessageAction(message)
+            var messageAction: MessageAction = ClassUtils.fromJsonToMessageAction(jsonObjects.getJSONObject("messageAction").toString())
             messageAction.messageType = MessageType.OK
             messageAction.time = System.currentTimeMillis()
             okList.add(messageAction);
+
+            //check size list,if size of list more then const then list saved and cleared
             if (okList.size >= maxLengthOfArray) {
+                var cloneList = okList.clone()
                 Thread(Runnable {
-                    this.messageActionService.saveAll(okList.clone() as ArrayList<MessageAction>)
+                    this.messageActionService.saveAll(cloneList as ArrayList<MessageAction>)
                 }).start()
 
                 okList.clear()
@@ -243,7 +250,7 @@ class MainController(
 
         } else if (type.equals("email_error")) {
 
-            var messageAction: MessageAction = ClassUtils.fromJsonToMessageAction(message)
+            var messageAction: MessageAction = ClassUtils.fromJsonToMessageAction(jsonObjects.getJSONObject("messageAction").toString())
             messageAction.messageType = MessageType.ERROR
             messageAction.time = System.currentTimeMillis()
             errorList.add(messageAction);
@@ -255,11 +262,17 @@ class MainController(
                 errorList.clear()
             }
 
-        } else if (type.equals("end")) {
+        } else if (type.equals("end_send_confirm")) {
             sendMessageInKafkaPrivate(message)
-        } else if (type.equals("new_cron")) {
-            var cron: Cron = ClassUtils.fromJsonToCron(message)
+        } else if (type.equals("new_cron") || type.equals("edit_cron")) {
+            var cron: Cron = ClassUtils.fromJsonToCron(jsonObjects.getJSONObject("cron").toString())
+
+            if(type.equals("edit_cron")){
+                //cronService.update(cron)
+                return;
+            }
             cronService.save(cron)
+
         } else if (type.equals("delete_cron")) {
             var id = jsonObjects.getLong("cronId")
             cronService.delete(id)
@@ -277,6 +290,7 @@ class MainController(
         val producerRecord = ProducerRecord<String?, String>(config.public_topic, null, message)
         producer!!.send(producerRecord)
     }
+
     private fun sendMessageInKafkaPrivate(message: String) {
         val producerRecord = ProducerRecord<String?, String>(config.private_topic, null, message)
         producer!!.send(producerRecord)
@@ -284,28 +298,35 @@ class MainController(
 
 
     override fun run() {
-        while (true) {
-            try {
-                while (true) {
-                    val records: ConsumerRecords<String?, String?> =
-                        consumer.poll(Duration.ofMillis(App.config.duration_of_poll))
-                    for (record in records) {
-                        val message = record.value()
+
+        try {
+            while (true) {
+                val records: ConsumerRecords<String?, String?> =
+                    consumer.poll(Duration.ofMillis(App.config.duration_of_poll))
+                for (record in records) {
+                    val message = record.value()
+                    println(message)
+                    try {
                         if (message != null) {
                             execute(message)
                         };
+                    }catch (e:Exception){
+                        println(e)
                     }
+
                 }
-            } catch (e: WakeupException) {
-                log.info("Wake up exception!")
-                // we ignore this as this is an expected exception when closing a consumer
-            } catch (e: Exception) {
-                log.error("Unexpected exception", e)
-            } finally {
-                consumer.close() // this will also commit the offsets if need be.
-                log.info("The consumer is now gracefully closed.")
             }
+        } catch (e: WakeupException) {
+            println("Wake up exception!")
+            // we ignore this as this is an expected exception when closing a consumer
+        } catch (e: Exception) {
+            e.printStackTrace()
+            println("Unexpected exception $e")
+        } finally {
+            consumer.close() // this will also commit the offsets if need be.
+            println("The consumer is now gracefully closed.")
         }
+
     }
 
     private fun pushTaskInRedis(message: String) {

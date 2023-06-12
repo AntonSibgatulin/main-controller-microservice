@@ -1,17 +1,16 @@
 package jp.konosuba.include.cron.entity;
 
+import jp.konosuba.include.contacts.Contacts;
 import jp.konosuba.include.cron.Cron;
 import jp.konosuba.include.cron.CronRepository;
 import jp.konosuba.include.cron.CronType;
 import org.jetbrains.annotations.NotNull;
-import org.springframework.data.domain.Example;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.support.SimpleJpaRepository;
 import org.springframework.stereotype.Repository;
 
 import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.EntityTransaction;
 import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
@@ -23,11 +22,11 @@ import java.util.Optional;
 @Repository
 public class CronRepositoryImpl extends SimpleJpaRepository<Cron,Long> implements CronRepository {
 
-    private final EntityManager entityManager;
+    private final EntityManagerFactory entityManagerFactory;
 
-    public CronRepositoryImpl(EntityManager entityManager) {
-        super(Cron.class,entityManager);
-        this.entityManager = entityManager;
+    public CronRepositoryImpl(EntityManagerFactory entityManagerFactory) {
+        super(Cron.class,entityManagerFactory.createEntityManager());
+        this.entityManagerFactory = entityManagerFactory;
     }
 
 
@@ -35,27 +34,29 @@ public class CronRepositoryImpl extends SimpleJpaRepository<Cron,Long> implement
 
     @Override
     public Cron getCronByIdAndUserId(long id, long userId) {
-        CriteriaBuilder builder = entityManager.getCriteriaBuilder();
-        CriteriaQuery<Cron> query = builder.createQuery(Cron.class);
+        var entityManager = entityManagerFactory.createEntityManager();
+        var builder = entityManager.getCriteriaBuilder();
+        var query = builder.createQuery(Cron.class);
 
-        Root<Cron> root = query.from(Cron.class);
+        var root = query.from(Cron.class);
         query.select(root).where(builder.and(builder.equal(root.get("id"), id), builder.equal(root.get("userId"), userId)));
 
-        TypedQuery<Cron> typedQuery = entityManager.createQuery(query);
+        var typedQuery = entityManager.createQuery(query);
         return (typedQuery.getSingleResult());
     }
 
 
     @Override
     public Cron getCronById(long id) {
-        CriteriaBuilder builder = entityManager.getCriteriaBuilder();
-        CriteriaQuery<Cron> query = builder.createQuery(Cron.class);
+        var entityManager = entityManagerFactory.createEntityManager();
+        var builder = entityManager.getCriteriaBuilder();
+        var query = builder.createQuery(Cron.class);
 
-        Root<Cron> root = query.from(Cron.class);
+        var root = query.from(Cron.class);
         query.select(root).where(builder.and(builder.equal(root.get("id"), id)));
 
-        TypedQuery<Cron> typedQuery = entityManager.createQuery(query);
-        List<Cron> listResult = typedQuery.getResultList();
+        var typedQuery = entityManager.createQuery(query);
+        var listResult = typedQuery.getResultList();
         if(listResult.size()==0){
             return null;
         }
@@ -67,14 +68,49 @@ public class CronRepositoryImpl extends SimpleJpaRepository<Cron,Long> implement
 
     @Override
     public List<Cron> getCronByCronType(@NotNull CronType type) {
-        CriteriaBuilder builder = entityManager.getCriteriaBuilder();
-        CriteriaQuery<Cron> query = builder.createQuery(Cron.class);
+        var entityManager = entityManagerFactory.createEntityManager();
+        var builder = entityManager.getCriteriaBuilder();
+        var query = builder.createQuery(Cron.class);
 
-        Root<Cron> root = query.from(Cron.class);
+        var root = query.from(Cron.class);
         query.select(root).where(builder.and(builder.equal(root.get("cronType"), type)));
 
-        TypedQuery<Cron> typedQuery = entityManager.createQuery(query);
+        var typedQuery = entityManager.createQuery(query);
         return typedQuery.getResultList();
 
+    }
+
+    @Transactional
+    @Override
+    public <S extends Cron> S save(S entity) {
+        var entityManager = entityManagerFactory.createEntityManager();
+        EntityTransaction transaction = entityManager.getTransaction();
+        try {
+            transaction.begin();
+            entityManager.persist(entity);
+            transaction.commit();
+            entityManager.close();
+        } catch (Exception e) {
+            transaction.rollback();
+            throw e;
+        }
+        return (entity);
+    }
+
+
+    @Override
+    public void deleteById(Long aLong) {
+        var cron = getCronById(aLong);
+        if(cron==null)return;
+        var entityManager = entityManagerFactory.createEntityManager();
+        EntityTransaction transaction = entityManager.getTransaction();
+        try {
+            transaction.begin();
+            entityManager.remove(cron);
+            transaction.commit();
+        } catch (Exception e) {
+            transaction.rollback();
+            throw e;
+        }
     }
 }

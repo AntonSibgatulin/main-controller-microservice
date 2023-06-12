@@ -12,8 +12,8 @@ open class CronService(private val cronRepository: CronRepository) {
 
 
     @Transactional
-    open fun save(cron: Cron) {
-        cronRepository.save(cron)
+    open fun save(cron: Cron): Cron {
+        return cronRepository.save(cron)
     }
 
     @Transactional
@@ -35,4 +35,6 @@ open class CronService(private val cronRepository: CronRepository) {
     open fun getCronsByTypeCron(cronType: CronType): MutableList<Cron> {
         return cronRepository.getCronByCronType(cronType)
     }
+
+
 }

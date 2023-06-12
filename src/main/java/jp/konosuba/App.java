@@ -4,6 +4,7 @@ package jp.konosuba;
 import com.sun.tools.javac.Main;
 import jp.konosuba.config.Config;
 import jp.konosuba.controller.MainController;
+import jp.konosuba.include.contacts.Contacts;
 import jp.konosuba.include.contacts.ContactsRepository;
 import jp.konosuba.include.contacts.entity.ContactsReposytoryImpl;
 import jp.konosuba.include.contacts.service.ContactsService;
@@ -11,11 +12,15 @@ import jp.konosuba.include.cron.Cron;
 import jp.konosuba.include.cron.CronRepository;
 import jp.konosuba.include.cron.entity.CronRepositoryImpl;
 import jp.konosuba.include.cron.services.CronService;
+import jp.konosuba.include.messages.MessageAction;
 import jp.konosuba.include.messages.MessageActionRepository;
+import jp.konosuba.include.messages.MessageType;
 import jp.konosuba.include.messages.entity.MessageActionRepositoryImpl;
 import jp.konosuba.include.messages.services.MessageActionService;
+import jp.konosuba.utils.ClassUtils;
 import org.json.JSONObject;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 import redis.clients.jedis.Jedis;
 
 import javax.persistence.EntityManager;
@@ -28,7 +33,7 @@ import java.io.*;
  * Hello world!
  */
 @EnableJpaRepositories(basePackages = "jp.konosuba")
-@Transactional
+@EnableTransactionManagement
 public class App {
     public static Config config =new Config();;
 
@@ -46,16 +51,53 @@ public class App {
        // EntityManager entityManager = entityManagerFactory.createEntityManager();
         var entityManagerFactory = Persistence.createEntityManagerFactory("myPersistenceUnit");
         var entityManager = entityManagerFactory.createEntityManager();
-        var cronRepository = new CronRepositoryImpl(entityManager);
+        var cronRepository = new CronRepositoryImpl(entityManagerFactory);
         var cronService = new CronService(cronRepository);
 
-        var contactsRepository = new ContactsReposytoryImpl(entityManager);
+        var contactsRepository = new ContactsReposytoryImpl(entityManagerFactory);
         var contactsService = new ContactsService(contactsRepository);
 
-        var messageActionRepository = new MessageActionRepositoryImpl(entityManager);
+        var messageActionRepository = new MessageActionRepositoryImpl(entityManagerFactory);
         var messageActionService = new MessageActionService(messageActionRepository);
 
+        var messageAction = new MessageAction();
+
+        var contacts = new Contacts();
+        //contacts.setId(1L);
+       /* contacts.setEmail("test@test");
+        contacts.setName("Name");
+        contacts.setPhone("12344364563");
+
+        contactsRepository.save(contacts);
+
+        */
+
+        messageAction.setMessageType(MessageType.OK);
+        //messageAction.setId(11L);
+        messageAction.setMessageId("hashId#1");
+        messageAction.setContacts(null);
+        messageAction.setTime(System.currentTimeMillis());
+        messageAction.setUserId(2L);
+        /*for(int i =0;i<100;i++) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    messageActionRepository.save(messageAction);
+                }
+            }).start();
+
+        }
+
+         */
+        //messageActionRepository.save(messageAction);
+
+        System.out.println(ClassUtils.fromObjectToJson(messageAction));
+        //System.out.println(ClassUtils.fromObjectToJson(contactsRepository.getById(1L)));
+
+
+
         var mainController = new MainController(config,jedis,messageActionService,cronService);
+
 
 
        // System.out.println("User ID: " + cron.toString());

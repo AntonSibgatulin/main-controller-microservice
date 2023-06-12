@@ -1,5 +1,5 @@
 {
-  "topicMainControllerReader": "notificator-api",
+  "topicMainControllerReader": "main-controller-api",
   "private_topic": "for-notification-api",
   "public_topic": "notificator-api",
   "kafka_host": "localhost",

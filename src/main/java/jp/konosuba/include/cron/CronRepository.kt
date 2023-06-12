@@ -10,4 +10,6 @@ interface CronRepository:JpaRepository<Cron,Long> {
     fun getCronByIdAndUserId(id:Long,userId:Long):Cron
     fun getCronById(id: Long): Cron?
     fun getCronByCronType(type: CronType): MutableList<Cron>
+
+
 }

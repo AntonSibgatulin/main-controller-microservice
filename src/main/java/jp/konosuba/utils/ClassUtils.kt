@@ -2,6 +2,7 @@ package jp.konosuba.utils
 
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import jp.konosuba.include.contacts.Contacts
 import jp.konosuba.include.cron.Cron
 import jp.konosuba.include.messages.MessageAction
 
@@ -18,6 +19,17 @@ class ClassUtils {
         fun fromJsonToCron(data:String):Cron{
             val objectMapper = ObjectMapper()
             return objectMapper.readValue(data,Cron::class.java)
+        }
+
+        @JvmStatic
+        fun fromObjectToJson(messageAction: MessageAction): String {
+            var objectMapper: ObjectMapper = ObjectMapper()
+            return objectMapper.writeValueAsString(messageAction)
+        }
+        @JvmStatic
+        fun fromObjectToJson(contacts: Contacts): String {
+            var objectMapper: ObjectMapper = ObjectMapper()
+            return objectMapper.writeValueAsString(contacts)
         }
     }
 
