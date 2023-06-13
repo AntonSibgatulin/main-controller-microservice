@@ -261,6 +261,11 @@ class MainController(
 
                 errorList.clear()
             }
+            var json = JSONObject(ClassUtils.fromObjectToJson(messageAction))
+            json.put("typeOperation","send")
+
+
+            sendMessageInKafkaPublic(json.toString());
 
         } else if (type.equals("end_send_confirm")) {
             sendMessageInKafkaPrivate(message)
