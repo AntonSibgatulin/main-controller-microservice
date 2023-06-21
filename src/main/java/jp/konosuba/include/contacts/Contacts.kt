@@ -15,7 +15,6 @@ import javax.persistence.Id
 
 class Contacts {
     @Id
-
     var id: Long? = null
     var name: String? = null
     var phone: String? = null
@@ -27,25 +26,7 @@ class Contacts {
             : Boolean? = false
 
     constructor()
-    constructor(
-        name: String?,
-        phone: String?,
-        email: String?,
-        relative: Boolean?,
-        tg: Boolean?,
-        vk: Boolean?,
-        ws: Boolean?
-    ) {
 
-        this.id = -1
-        this.name = name
-        this.phone = phone
-        this.email = email
-        this.relative = relative
-        this.tg = tg
-        this.vk = vk
-        this.ws = ws
-    }
 
 
 

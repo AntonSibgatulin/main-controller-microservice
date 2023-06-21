@@ -96,7 +96,7 @@ public class App {
 
 
 
-        var mainController = new MainController(config,jedis,messageActionService,cronService);
+        var mainController = new MainController(config,jedis,messageActionService,cronService,contactsRepository);
 
 
 

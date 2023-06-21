@@ -36,5 +36,10 @@ open class CronService(private val cronRepository: CronRepository) {
         return cronRepository.getCronByCronType(cronType)
     }
 
+    fun deleteById(id: Long) {
+        cronRepository.deleteById(id);
+
+    }
+
 
 }

@@ -2,6 +2,7 @@ package jp.konosuba.controller
 
 import jp.konosuba.App
 import jp.konosuba.config.Config
+import jp.konosuba.include.contacts.ContactsRepository
 import jp.konosuba.include.cron.Cron
 import jp.konosuba.include.cron.CronType
 import jp.konosuba.include.cron.services.CronService
@@ -31,7 +32,8 @@ class MainController(
     config: Config,
     jedis: Jedis,
     messageActionService: MessageActionService,
-    cronService: CronService
+    cronService: CronService,
+    contactsRepository: ContactsRepository
 ) : Thread() {
     private val log = LoggerFactory.getLogger(App::class.java)
 
@@ -44,6 +46,7 @@ class MainController(
     private val jedis: Jedis
     private val messageActionService: MessageActionService
     private val cronService: CronService
+    private val contactsRepository:ContactsRepository
 
     private val okList: ArrayList<MessageAction> = ArrayList()
     private val errorList: ArrayList<MessageAction> = ArrayList()
@@ -134,6 +137,8 @@ class MainController(
                 if (cron != null) {
                     var runnable = Runnable {
                         var messageId = "hash" + System.currentTimeMillis();
+                        if(cron.message == null)
+                            return@Runnable
                         jedis.set(messageId, cron.message)
                         var json = JSONObject()
                         json.put("typeOperation", "notification-api")
@@ -173,7 +178,7 @@ class MainController(
         this.jedis = jedis
         this.messageActionService = messageActionService
         this.cronService = cronService
-
+        this.contactsRepository = contactsRepository
         executeService = Executors.newFixedThreadPool(config.countThreadWriteInKafka)
 
         val props = Properties()
@@ -276,11 +281,17 @@ class MainController(
                 //cronService.update(cron)
                 return;
             }
+            try {
+                contactsRepository.saveAll(cron.contacts);
+            }catch (e:Exception){
+                //ignore
+            }
+
             cronService.save(cron)
 
         } else if (type.equals("delete_cron")) {
             var id = jsonObjects.getLong("cronId")
-            cronService.delete(id)
+            cronService.deleteById(id)
         } else if (type.equals("error_cron")) {
             var id = jsonObjects.getLong("cronId")
             var cron = cronService.getCron(id)

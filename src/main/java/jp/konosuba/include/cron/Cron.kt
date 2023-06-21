@@ -21,7 +21,7 @@ class Cron {
 
     var http: String? = null
 
-    @ManyToMany(cascade = arrayOf(CascadeType.MERGE))
+    @ManyToMany(cascade = arrayOf(CascadeType.MERGE), fetch = FetchType.EAGER)
     @JoinTable
     var contacts: List<Contacts> = mutableListOf()
 

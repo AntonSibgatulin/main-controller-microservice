@@ -100,16 +100,24 @@ public class CronRepositoryImpl extends SimpleJpaRepository<Cron,Long> implement
 
     @Override
     public void deleteById(Long aLong) {
-        var cron = getCronById(aLong);
-        if(cron==null)return;
+
         var entityManager = entityManagerFactory.createEntityManager();
         EntityTransaction transaction = entityManager.getTransaction();
+        var cron = entityManager.find(Cron.class,aLong);
+        if(cron==null)return;
+        cron.getContacts().clear();
         try {
             transaction.begin();
+            /*if(!entityManager.contains(cron)){
+                entityManager.merge(cron);
+            }
+
+             */
             entityManager.remove(cron);
             transaction.commit();
         } catch (Exception e) {
-            transaction.rollback();
+            e.printStackTrace();
+            //transaction.rollback();
             throw e;
         }
     }
